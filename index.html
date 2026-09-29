@@ -1,0 +1,979 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Portfolio Dashboard</title>
+<link rel="icon" type="image/png" href="favicon.png" />
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #fafafa;
+    --card: #ffffff;
+    --border: #e4e4e7;
+    --text: #18181b;
+    --muted: #71717a;
+    --up: #059669;
+    --down: #dc2626;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #09090b;
+      --card: #18181b;
+      --border: #27272a;
+      --text: #fafafa;
+      --muted: #a1a1aa;
+      --up: #34d399;
+      --down: #f87171;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  #gate {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #gate form {
+    width: 100%;
+    max-width: 320px;
+    padding: 32px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--card);
+  }
+  #gate h1 { font-size: 16px; margin: 0 0 16px; }
+  #gate input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text);
+    font-size: 14px;
+    margin-bottom: 12px;
+  }
+  #gate button, .link-btn {
+    width: 100%;
+    padding: 10px 12px;
+    border: none;
+    border-radius: 8px;
+    background: var(--text);
+    color: var(--bg);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  #gate .error { color: var(--down); font-size: 13px; margin: -6px 0 12px; }
+
+  main { max-width: 880px; margin: 0 auto; padding: 32px 16px; display: none; }
+  h1.title { font-size: 22px; margin: 0 0 24px; }
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .card {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    background: var(--card);
+  }
+  .card .label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .card .value { font-size: 17px; font-weight: 600; }
+  .card .subvalue { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .up { color: var(--up); }
+  .down { color: var(--down); }
+
+  section { margin-bottom: 32px; }
+  section h2 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    margin: 0 0 10px;
+  }
+
+  .stock-card {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    background: var(--card);
+  }
+  .stock-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .stock-head .ticker { font-weight: 700; font-size: 15px; }
+  .stock-head .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .stock-head .price-block { text-align: right; }
+  .stock-head .price { font-weight: 600; }
+  .stock-head .pct { font-size: 12px; }
+
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .metrics .m-label { font-size: 11px; color: var(--muted); }
+  .metrics .m-value { font-size: 13px; font-weight: 600; margin-top: 1px; }
+
+  .analysis-block {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .analysis-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+  .analysis-date { font-size: 11px; color: var(--muted); }
+  .reasoning { font-size: 13px; color: var(--text); line-height: 1.55; }
+  .no-analysis { font-size: 12px; color: var(--muted); font-style: italic; }
+
+  .history-toggle {
+    margin-top: 10px;
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 12px;
+    cursor: pointer;
+    padding: 0;
+    text-decoration: underline;
+  }
+  .history-list { margin-top: 10px; display: none; }
+  .history-list.open { display: block; }
+  .history-item {
+    padding: 8px 0;
+    border-top: 1px dashed var(--border);
+    font-size: 12px;
+  }
+  .history-item .h-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+  .history-item .h-date { color: var(--muted); }
+  .history-item .h-reasoning { color: var(--muted); line-height: 1.5; }
+
+  .signal {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 999px;
+    border: 1px solid;
+    white-space: nowrap;
+  }
+  .signal-add    { color: #16a34a; border-color: #16a34a; background: rgba(22,163,74,0.1); }
+  .signal-buy    { color: #2563eb; border-color: #2563eb; background: rgba(37,99,235,0.1); }
+  .signal-hold   { color: #71717a; border-color: #a1a1aa; background: rgba(113,113,122,0.1); }
+  .signal-watch  { color: #ca8a04; border-color: #ca8a04; background: rgba(202,138,4,0.12); }
+  .signal-trim   { color: #0891b2; border-color: #0891b2; background: rgba(8,145,178,0.1); }
+  .signal-block  { color: #d97706; border-color: #d97706; background: rgba(217,119,6,0.12); }
+  .signal-sell   { color: #dc2626; border-color: #dc2626; background: rgba(220,38,38,0.1); }
+  .signal-urgent { color: #ffffff; border-color: #b91c1c; background: #b91c1c; }
+  .signal-remove { color: #71717a; border-color: var(--border); background: rgba(113,113,122,0.08); font-style: italic; }
+  @media (prefers-color-scheme: dark) {
+    .signal-add    { color: #4ade80; border-color: #4ade80; background: rgba(74,222,128,0.12); }
+    .signal-buy    { color: #60a5fa; border-color: #60a5fa; background: rgba(96,165,250,0.12); }
+    .signal-hold   { color: #a1a1aa; border-color: #71717a; background: rgba(161,161,170,0.1); }
+    .signal-watch  { color: #fbbf24; border-color: #fbbf24; background: rgba(251,191,36,0.12); }
+    .signal-trim   { color: #22d3ee; border-color: #22d3ee; background: rgba(34,211,238,0.12); }
+    .signal-block  { color: #fbbf24; border-color: #fbbf24; background: rgba(251,191,36,0.12); }
+    .signal-sell   { color: #f87171; border-color: #f87171; background: rgba(248,113,113,0.12); }
+    .signal-urgent { color: #ffffff; border-color: #ef4444; background: #ef4444; }
+    .signal-remove { color: #a1a1aa; border-color: var(--border); background: rgba(161,161,170,0.08); font-style: italic; }
+  }
+
+  .empty { color: var(--muted); font-size: 13px; }
+
+  .portfolio-summary {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    background: var(--card);
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text);
+    margin-bottom: 24px;
+  }
+  .portfolio-summary .ps-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+
+  .top-pick {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+    border: 1px solid #f59e0b;
+    background: rgba(245,158,11,0.1);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-top: 12px;
+  }
+  .top-pick .tp-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: #b45309;
+  }
+  .top-pick .tp-ticker {
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .top-pick .tp-reason {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.5;
+    flex-basis: 100%;
+  }
+  @media (prefers-color-scheme: dark) {
+    .top-pick { border-color: #fbbf24; background: rgba(251,191,36,0.12); }
+    .top-pick .tp-label { color: #fbbf24; }
+  }
+
+  .signal-changes {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    background: var(--card);
+    margin-bottom: 24px;
+  }
+  .signal-changes .sc-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+  .sc-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    font-size: 13px;
+    flex-wrap: wrap;
+  }
+  .sc-item .sc-ticker { font-weight: 700; min-width: 56px; }
+  .sc-arrow { color: var(--muted); }
+
+  .target-hit {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid #16a34a;
+    color: #16a34a;
+    background: rgba(22,163,74,0.1);
+    margin-top: 2px;
+  }
+  @media (prefers-color-scheme: dark) {
+    .target-hit { border-color: #4ade80; color: #4ade80; background: rgba(74,222,128,0.12); }
+  }
+
+  .changed-tag {
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 400;
+  }
+
+  .trade-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 8px;
+    background: var(--card);
+  }
+  .trade-row .tr-ticker { font-weight: 700; }
+  .trade-row .tr-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .trade-row .tr-pnl { text-align: right; font-weight: 600; }
+  .trade-row .tr-pnl-pct { text-align: right; font-size: 12px; }
+
+  footer { text-align: center; padding: 24px; color: var(--muted); font-size: 12px; }
+
+  .warn-banner {
+    border: 1px solid #d97706;
+    border-radius: 10px;
+    padding: 14px 16px;
+    background: rgba(217,119,6,0.08);
+    margin-bottom: 24px;
+  }
+  .warn-banner .wb-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: #d97706;
+    margin-bottom: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    .warn-banner { border-color: #fbbf24; background: rgba(251,191,36,0.08); }
+    .warn-banner .wb-label { color: #fbbf24; }
+  }
+  .wb-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    font-size: 13px;
+    flex-wrap: wrap;
+  }
+  .wb-item .wb-ticker { font-weight: 700; min-width: 56px; }
+  .wb-item .wb-reason { color: var(--muted); flex: 1; min-width: 200px; }
+
+  .chart-wrap {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    background: var(--card);
+    margin-bottom: 24px;
+  }
+  .chart-wrap .chart-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .chart-wrap .chart-note {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+  .chart-wrap svg { width: 100%; height: auto; display: block; }
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <form id="gate-form">
+    <h1>Portfolio Dashboard</h1>
+    <input type="email" id="email" placeholder="Email" autocomplete="username" autofocus />
+    <input type="password" id="pw" placeholder="Password" autocomplete="current-password" />
+    <p class="error" id="gate-error" style="display:none">Sign-in failed</p>
+    <button type="submit">Enter</button>
+  </form>
+</div>
+
+<main id="app">
+  <h1 class="title">Portfolio Dashboard</h1>
+  <div id="portfolio-chart"></div>
+  <div id="warn-banner"></div>
+  <div id="portfolio-summary"></div>
+  <div id="signal-changes"></div>
+  <div class="cards" id="cards"></div>
+
+  <section>
+    <h2>Holdings</h2>
+    <div id="holdings"></div>
+  </section>
+
+  <section>
+    <h2>Watchlist</h2>
+    <div id="watchlist"></div>
+  </section>
+
+  <section>
+    <h2>Trade History (Realized P&amp;L)</h2>
+    <div id="trades"></div>
+  </section>
+</main>
+
+<footer>data via Supabase &middot; read-only</footer>
+
+<script type="module">
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const SUPABASE_URL = "https://qfgcqaqusgbvrcjellrs.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_k_g0w-kSf2LowErucmKicA_ABDrslUo";
+
+// Reads are restricted to authenticated users by RLS (see migration 0010), so
+// the anon key alone cannot read any data. The session persists in localStorage.
+const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+function fmt(n) {
+  return n.toLocaleString("en-US", { maximumFractionDigits: 2 });
+}
+function fmtSigned(n) {
+  const sign = n > 0 ? "+" : n < 0 ? "-" : "";
+  return `${sign}$${fmt(Math.abs(n))}`;
+}
+function fmtPct(n) {
+  if (n === null || n === undefined) return null;
+  const sign = n > 0 ? "+" : "";
+  return `${sign}${n.toFixed(2)}%`;
+}
+function toneClass(n) {
+  if (n === null || n === undefined) return "";
+  return n >= 0 ? "up" : "down";
+}
+
+const SIGNAL_META = {
+  add_more: { emoji: "🟢", cls: "signal-add", label: "Add more" },
+  buy: { emoji: "🔵", cls: "signal-buy", label: "Buy" },
+  hold: { emoji: "⚪", cls: "signal-hold", label: "Hold" },
+  watch: { emoji: "🟡", cls: "signal-watch", label: "Watch" },
+  trim: { emoji: "✂️", cls: "signal-trim", label: "Trim" },
+  avoid_chasing: { emoji: "🟠", cls: "signal-block", label: "Don't chase" },
+  buy_wait: { emoji: "🟠", cls: "signal-block", label: "Wait to buy" },
+  sell: { emoji: "🔴", cls: "signal-sell", label: "Sell" },
+  urgent_sell: { emoji: "🚨", cls: "signal-urgent", label: "Urgent sell" },
+  drop_watch: { emoji: "🗑️", cls: "signal-remove", label: "Drop" },
+};
+function signalBadge(signal) {
+  const meta = SIGNAL_META[signal] || { emoji: "⚪", cls: "signal-hold", label: signal };
+  return `<span class="signal ${meta.cls}">${meta.emoji} ${meta.label}</span>`;
+}
+
+let historySeq = 0;
+
+async function unlock() {
+  document.getElementById("gate").style.display = "none";
+  document.getElementById("app").style.display = "block";
+  await loadDashboard();
+}
+
+document.getElementById("gate-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("pw").value;
+  const { error } = await client.auth.signInWithPassword({ email, password });
+  if (error) {
+    document.getElementById("gate-error").style.display = "block";
+  } else {
+    unlock();
+  }
+});
+
+client.auth.getSession().then(({ data }) => {
+  if (data.session) unlock();
+});
+
+async function loadDashboard() {
+
+  const [{ data: holdings }, { data: watchlist }, { data: snapshots }, { data: intraday }, { data: analysis }, { data: portfolioSummaries }, { data: trades }] =
+    await Promise.all([
+      client.from("holdings").select("*").order("ticker"),
+      client.from("watchlist").select("*").order("ticker"),
+      client.from("daily_snapshots").select("*").order("date", { ascending: false }),
+      client.from("intraday_snapshots").select("*").order("ts", { ascending: false }).limit(2000),
+      client.from("daily_analysis").select("*").order("date", { ascending: false }),
+      client.from("portfolio_analysis").select("*").order("date", { ascending: false }).limit(30),
+      client.from("trades").select("*").order("sell_date", { ascending: false }),
+    ]);
+
+  const latestByTicker = (rows) => {
+    const map = {};
+    for (const row of rows || []) {
+      if (!map[row.ticker]) map[row.ticker] = row;
+    }
+    return map;
+  };
+  const historyByTicker = (rows) => {
+    const map = {};
+    for (const row of rows || []) {
+      (map[row.ticker] ??= []).push(row);
+    }
+    return map;
+  };
+
+  const latestSnapshot = latestByTicker(snapshots);
+  const analysisHistory = historyByTicker(analysis);
+  const holdingTickers = (holdings || []).map((r) => r.ticker);
+  const trackedTickers = [...(holdings || []), ...(watchlist || [])].map((r) => r.ticker);
+
+  renderPortfolioChart(holdings || [], snapshots || [], intraday || []);
+  renderWarnBanner(holdingTickers, analysisHistory);
+  renderPortfolioSummary(portfolioSummaries || []);
+  renderSignalChanges(trackedTickers, analysisHistory);
+  renderCards(holdings || [], latestSnapshot, trades || []);
+  renderHoldings(holdings || [], latestSnapshot, analysisHistory);
+  renderWatchlist(watchlist || [], latestSnapshot, analysisHistory);
+  renderTrades(trades || []);
+}
+
+const SIGNAL_SEVERITY = {
+  urgent_sell: 0,
+  sell: 1,
+  trim: 2,
+  watch: 3,
+  avoid_chasing: 4,
+  drop_watch: 5,
+};
+
+function renderWarnBanner(tickers, analysisHistory) {
+  const el = document.getElementById("warn-banner");
+  const warnings = tickers
+    .map((t) => {
+      const hist = analysisHistory[t] || [];
+      return hist[0] ? { ticker: t, latest: hist[0] } : null;
+    })
+    .filter((w) => w && w.latest.signal in SIGNAL_SEVERITY)
+    .sort((a, b) => SIGNAL_SEVERITY[a.latest.signal] - SIGNAL_SEVERITY[b.latest.signal]);
+
+  if (warnings.length === 0) {
+    el.innerHTML = "";
+    return;
+  }
+
+  el.innerHTML = `
+    <div class="warn-banner">
+      <div class="wb-label">⚠️ Needs attention now (${warnings.length})</div>
+      ${warnings
+        .map(
+          (w) => `
+        <div class="wb-item">
+          <span class="wb-ticker">${w.ticker}</span>
+          ${signalBadge(w.latest.signal)}
+          <span class="wb-reason">${w.latest.reasoning || ""}</span>
+        </div>
+      `
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+function portfolioValueAt(qtyByTicker, prices) {
+  let value = 0;
+  let coveredTickers = 0;
+  for (const ticker in qtyByTicker) {
+    if (ticker in prices) {
+      value += prices[ticker] * qtyByTicker[ticker];
+      coveredTickers += 1;
+    }
+  }
+  return { value, coverage: coveredTickers / Object.keys(qtyByTicker).length };
+}
+
+function renderPortfolioChart(holdings, snapshots, intraday) {
+  const el = document.getElementById("portfolio-chart");
+  if (holdings.length === 0) {
+    el.innerHTML = "";
+    return;
+  }
+
+  const qtyByTicker = {};
+  for (const h of holdings) qtyByTicker[h.ticker] = h.quantity;
+
+  const byDate = {};
+  for (const s of snapshots) {
+    if (!(s.ticker in qtyByTicker)) continue;
+    (byDate[s.date] ??= {})[s.ticker] = s.price;
+  }
+
+  const dailyPoints = Object.keys(byDate)
+    .sort()
+    .map((date) => {
+      const { value, coverage } = portfolioValueAt(qtyByTicker, byDate[date]);
+      return { x: date, label: date, value, coverage };
+    })
+    .filter((p) => p.coverage > 0);
+
+  // intraday rows for the most recent trading day give finer-grained points
+  // than the one-per-day daily_snapshots history, so swap that last day out
+  // for its intraday series when we have one.
+  const relevantIntraday = (intraday || []).filter((r) => r.ticker in qtyByTicker);
+  let intradayPoints = [];
+  if (relevantIntraday.length > 0) {
+    const latestDate = relevantIntraday.reduce((max, r) => (r.ts > max ? r.ts : max), relevantIntraday[0].ts).slice(0, 10);
+    const byTs = {};
+    for (const r of relevantIntraday) {
+      if (!r.ts.startsWith(latestDate)) continue;
+      (byTs[r.ts] ??= {})[r.ticker] = r.price;
+    }
+    intradayPoints = Object.keys(byTs)
+      .sort()
+      .map((ts) => {
+        const { value, coverage } = portfolioValueAt(qtyByTicker, byTs[ts]);
+        const time = new Date(ts).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+        return { x: ts, label: `${latestDate} ${time}`, value, coverage, date: latestDate };
+      })
+      .filter((p) => p.coverage > 0);
+  }
+
+  const points = [
+    ...dailyPoints.filter((p) => intradayPoints.length === 0 || p.x !== intradayPoints[0].date),
+    ...intradayPoints,
+  ];
+
+  if (points.length < 2) {
+    el.innerHTML = `
+      <div class="chart-wrap">
+        <div class="chart-label">📈 Portfolio value over time</div>
+        <div class="chart-note">Need a few more days of data to draw a chart (collected automatically every day)</div>
+      </div>
+    `;
+    return;
+  }
+
+  const values = points.map((p) => p.value);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const w = 640, h = 180, padL = 58, padR = 12, padY = 12;
+  const range = max - min || 1;
+  const plotW = w - padL - padR;
+  const stepX = points.length > 1 ? plotW / (points.length - 1) : 0;
+
+  const coords = points.map((p, i) => {
+    const x = padL + i * stepX;
+    const y = padY + (1 - (p.value - min) / range) * (h - padY * 2);
+    return { x, y, value: p.value, label: p.label };
+  });
+
+  const pathD = coords.map((c, i) => `${i === 0 ? "M" : "L"} ${c.x.toFixed(1)} ${c.y.toFixed(1)}`).join(" ");
+  const areaD = `${pathD} L ${coords[coords.length - 1].x.toFixed(1)} ${h - padY} L ${coords[0].x.toFixed(1)} ${h - padY} Z`;
+
+  const first = values[0];
+  const last = values[values.length - 1];
+  const changePct = first > 0 ? ((last - first) / first) * 100 : 0;
+  const color = last >= first ? "var(--up)" : "var(--down)";
+
+  const gridCount = 4;
+  const gridLines = Array.from({ length: gridCount + 1 }, (_, i) => {
+    const t = i / gridCount;
+    const value = max - t * range;
+    const y = padY + t * (h - padY * 2);
+    return { y, value };
+  });
+
+  const rangeLabel = intradayPoints.length > 0
+    ? `${points[0].label} ~ ${intradayPoints[intradayPoints.length - 1].label}`
+    : `${points[0].label} ~ ${points[points.length - 1].label}`;
+
+  el.innerHTML = `
+    <div class="chart-wrap">
+      <div class="chart-label">📈 Portfolio value over time · ${rangeLabel}</div>
+      <div class="value ${toneClass(last - first)}" style="font-size:20px;">$${fmt(last)} <span style="font-size:13px; font-weight:600;">(${fmtPct(changePct)})</span></div>
+      <svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+        ${gridLines
+          .map(
+            (g) => `
+          <line x1="${padL}" y1="${g.y.toFixed(1)}" x2="${w - padR}" y2="${g.y.toFixed(1)}" stroke="var(--border)" stroke-width="1" />
+          <text x="${(padL - 6).toFixed(1)}" y="${(g.y + 3).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--muted)">$${fmt(Math.round(g.value))}</text>
+        `
+          )
+          .join("")}
+        <path d="${areaD}" fill="${color}" opacity="0.08" stroke="none" />
+        <path d="${pathD}" fill="none" stroke="${color}" stroke-width="2" />
+        ${coords
+          .map((c, i) => (i === 0 || i === coords.length - 1 ? `<circle cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="3" fill="${color}" />` : ""))
+          .join("")}
+      </svg>
+      <div class="chart-note">Retroactively calculated from historical prices using current holding quantities (daily data, plus 10-minute intervals for today; doesn't account for changes before each position's start date).</div>
+    </div>
+  `;
+}
+
+function signalChanged(ticker, analysisHistory) {
+  const hist = analysisHistory[ticker] || [];
+  if (hist.length < 2) return null;
+  const [latest, prev] = hist;
+  if (latest.signal === prev.signal) return null;
+  return { latest, prev };
+}
+
+function renderSignalChanges(tickers, analysisHistory) {
+  const el = document.getElementById("signal-changes");
+  const changes = tickers
+    .map((t) => ({ ticker: t, change: signalChanged(t, analysisHistory) }))
+    .filter((c) => c.change);
+
+  if (changes.length === 0) {
+    el.innerHTML = "";
+    return;
+  }
+
+  el.innerHTML = `
+    <div class="signal-changes">
+      <div class="sc-label">🔁 Signals changed today (${changes.length})</div>
+      ${changes
+        .map(
+          ({ ticker, change }) => `
+        <div class="sc-item">
+          <span class="sc-ticker">${ticker}</span>
+          ${signalBadge(change.prev.signal)}
+          <span class="sc-arrow">→</span>
+          ${signalBadge(change.latest.signal)}
+        </div>
+      `
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+function renderPortfolioSummary(summaries) {
+  const el = document.getElementById("portfolio-summary");
+  if (summaries.length === 0) {
+    el.innerHTML = "";
+    return;
+  }
+  const [latest, ...rest] = summaries;
+  const historyId = `ps-history`;
+  el.innerHTML = `
+    <div class="portfolio-summary">
+      <div class="ps-label">📊 Portfolio analysis · ${latest.date}</div>
+      <div>${latest.summary}</div>
+      ${latest.top_pick ? `
+        <div class="top-pick">
+          <span class="tp-label">⭐ Today's top pick</span>
+          <span class="tp-ticker">${latest.top_pick}</span>
+          ${latest.top_pick_reason ? `<div class="tp-reason">${latest.top_pick_reason}</div>` : ""}
+        </div>
+      ` : ""}
+      ${rest.length > 0 ? `
+        <button class="history-toggle" onclick="document.getElementById('${historyId}').classList.toggle('open')">Show past analyses (${rest.length})</button>
+        <div class="history-list" id="${historyId}">
+          ${rest.map((s) => `
+            <div class="history-item">
+              <div class="h-head"><span class="h-date">${s.date}</span>${s.top_pick ? ` <span class="changed-tag">⭐ ${s.top_pick}</span>` : ""}</div>
+              <div class="h-reasoning">${s.summary}</div>
+            </div>
+          `).join("")}
+        </div>
+      ` : ""}
+    </div>
+  `;
+}
+
+function renderCards(holdings, latestSnapshot, trades) {
+  const rows = holdings.map((h) => {
+    const snap = latestSnapshot[h.ticker];
+    const price = snap ? snap.price : h.avg_cost;
+    const changePct = snap ? snap.change_pct : null;
+    const prevClose = changePct !== null && changePct !== undefined ? price / (1 + changePct / 100) : price;
+    const marketValue = price * h.quantity;
+    const costBasis = h.avg_cost * h.quantity;
+    const todayPnl = (price - prevClose) * h.quantity;
+    const prevMarketValue = prevClose * h.quantity;
+    return { ticker: h.ticker, marketValue, costBasis, changePct, todayPnl, prevMarketValue };
+  });
+
+  const totalValue = rows.reduce((s, r) => s + r.marketValue, 0);
+  const totalCost = rows.reduce((s, r) => s + r.costBasis, 0);
+  const totalPnl = totalValue - totalCost;
+  const totalPnlPct = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0;
+
+  const totalTodayPnl = rows.reduce((s, r) => s + r.todayPnl, 0);
+  const totalPrevValue = rows.reduce((s, r) => s + r.prevMarketValue, 0);
+  const totalTodayPnlPct = totalPrevValue > 0 ? (totalTodayPnl / totalPrevValue) * 100 : 0;
+
+  const movers = rows.filter((r) => r.changePct !== null);
+  const topGainer = movers.length
+    ? movers.reduce((a, b) => (a.changePct > b.changePct ? a : b))
+    : null;
+  const topLoser = movers.length
+    ? movers.reduce((a, b) => (a.changePct < b.changePct ? a : b))
+    : null;
+
+  const totalRealizedPnl = trades.reduce((s, t) => s + t.realized_pnl, 0);
+
+  const cards = document.getElementById("cards");
+  cards.innerHTML = `
+    <div class="card">
+      <div class="label">Total market value</div>
+      <div class="value">$${fmt(totalValue)}</div>
+    </div>
+    <div class="card">
+      <div class="label">Today's P&amp;L</div>
+      <div class="value ${toneClass(totalTodayPnl)}">${fmtSigned(totalTodayPnl)}</div>
+      <div class="subvalue ${toneClass(totalTodayPnl)}">${fmtPct(totalTodayPnlPct)}</div>
+    </div>
+    <div class="card">
+      <div class="label">Unrealized P&amp;L</div>
+      <div class="value ${toneClass(totalPnl)}">${fmtSigned(totalPnl)}</div>
+      <div class="subvalue ${toneClass(totalPnl)}">${fmtPct(totalPnlPct)}</div>
+    </div>
+    <div class="card">
+      <div class="label">Realized P&amp;L</div>
+      <div class="value ${toneClass(totalRealizedPnl)}">${fmtSigned(totalRealizedPnl)}</div>
+      <div class="subvalue">${trades.length} trades total</div>
+    </div>
+    <div class="card">
+      <div class="label">Top gainer today</div>
+      <div class="value up">${topGainer ? `${topGainer.ticker} ${fmtPct(topGainer.changePct)}` : "-"}</div>
+    </div>
+    <div class="card">
+      <div class="label">Top loser today</div>
+      <div class="value down">${topLoser ? `${topLoser.ticker} ${fmtPct(topLoser.changePct)}` : "-"}</div>
+    </div>
+  `;
+}
+
+function analysisSection(ticker, analysisHistory) {
+  const hist = analysisHistory[ticker] || [];
+  if (hist.length === 0) {
+    return `<div class="analysis-block"><div class="no-analysis">No analysis yet</div></div>`;
+  }
+  const [latest, ...rest] = hist;
+  const changed = signalChanged(ticker, analysisHistory);
+  historySeq += 1;
+  const historyId = `hist-${ticker}-${historySeq}`;
+  return `
+    <div class="analysis-block">
+      <div class="analysis-head">
+        <span>${signalBadge(latest.signal)}${changed ? ` <span class="changed-tag">(yesterday: ${(SIGNAL_META[changed.prev.signal] || {}).label || changed.prev.signal})</span>` : ""}</span>
+        <span class="analysis-date">${latest.date}</span>
+      </div>
+      ${latest.reasoning ? `<div class="reasoning">${latest.reasoning}</div>` : ""}
+      ${rest.length > 0 ? `
+        <button class="history-toggle" onclick="document.getElementById('${historyId}').classList.toggle('open')">Show past analyses (${rest.length})</button>
+        <div class="history-list" id="${historyId}">
+          ${rest.map((a) => `
+            <div class="history-item">
+              <div class="h-head">${signalBadge(a.signal)}<span class="h-date">${a.date}</span></div>
+              ${a.reasoning ? `<div class="h-reasoning">${a.reasoning}</div>` : ""}
+            </div>
+          `).join("")}
+        </div>
+      ` : ""}
+    </div>
+  `;
+}
+
+function renderHoldings(holdings, latestSnapshot, analysisHistory) {
+  const el = document.getElementById("holdings");
+  if (holdings.length === 0) {
+    el.innerHTML = `<p class="empty">No holdings</p>`;
+    return;
+  }
+  el.innerHTML = holdings
+    .map((h) => {
+      const snap = latestSnapshot[h.ticker];
+      const price = snap ? snap.price : null;
+      const changePct = snap ? snap.change_pct : null;
+      const hasPrice = price !== null && price !== undefined;
+
+      let todayPnl = null, todayPnlPct = null, totalPnl = null, totalPnlPct = null;
+      if (hasPrice) {
+        const prevClose = changePct !== null && changePct !== undefined ? price / (1 + changePct / 100) : price;
+        todayPnl = (price - prevClose) * h.quantity;
+        todayPnlPct = changePct;
+        totalPnl = (price - h.avg_cost) * h.quantity;
+        totalPnlPct = h.avg_cost > 0 ? ((price - h.avg_cost) / h.avg_cost) * 100 : null;
+      }
+
+      return `
+        <div class="stock-card">
+          <div class="stock-head">
+            <div>
+              <div class="ticker">${h.ticker}</div>
+              <div class="sub">${h.quantity} sh · avg cost ${fmt(h.avg_cost)}</div>
+            </div>
+            <div class="price-block">
+              <div class="price">${hasPrice ? fmt(price) : "-"}</div>
+              <div class="pct ${toneClass(changePct)}">${changePct !== null && changePct !== undefined ? fmtPct(changePct) : "No data"}</div>
+            </div>
+          </div>
+          ${hasPrice ? `
+            <div class="metrics">
+              <div>
+                <div class="m-label">Today's P&amp;L</div>
+                <div class="m-value ${toneClass(todayPnl)}">${fmtSigned(todayPnl)}</div>
+              </div>
+              <div>
+                <div class="m-label">Unrealized P&amp;L</div>
+                <div class="m-value ${toneClass(totalPnl)}">${fmtSigned(totalPnl)}${totalPnlPct !== null ? ` (${fmtPct(totalPnlPct)})` : ""}</div>
+              </div>
+            </div>
+          ` : ""}
+          ${analysisSection(h.ticker, analysisHistory)}
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function renderWatchlist(watchlist, latestSnapshot, analysisHistory) {
+  const el = document.getElementById("watchlist");
+  if (watchlist.length === 0) {
+    el.innerHTML = `<p class="empty">No watchlist entries</p>`;
+    return;
+  }
+  el.innerHTML = watchlist
+    .map((w) => {
+      const snap = latestSnapshot[w.ticker];
+      const price = snap ? snap.price : null;
+
+      let targetInfo = "No target price set";
+      let targetHit = false;
+      if (w.target_price && price !== null) {
+        const diffPct = ((price - w.target_price) / w.target_price) * 100;
+        targetHit = price <= w.target_price;
+        targetInfo = targetHit
+          ? `Target ${fmt(w.target_price)}`
+          : `Target ${fmt(w.target_price)} · +${diffPct.toFixed(1)}% to target`;
+      } else if (w.target_price) {
+        targetInfo = `Target ${fmt(w.target_price)}`;
+      }
+
+      return `
+        <div class="stock-card">
+          <div class="stock-head">
+            <div>
+              <div class="ticker">${w.ticker}</div>
+              <div class="sub">${targetInfo}</div>
+              ${targetHit ? `<div class="target-hit">🎯 Target reached</div>` : ""}
+            </div>
+            <div class="price-block">
+              <div class="price">${price !== null ? fmt(price) : "-"}</div>
+              <div class="pct ${toneClass(snap?.change_pct)}">${snap && snap.change_pct !== null ? fmtPct(snap.change_pct) : "No data"}</div>
+            </div>
+          </div>
+          ${analysisSection(w.ticker, analysisHistory)}
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function renderTrades(trades) {
+  const el = document.getElementById("trades");
+  if (trades.length === 0) {
+    el.innerHTML = `<p class="empty">No trade history</p>`;
+    return;
+  }
+  el.innerHTML = trades
+    .map((t) => {
+      const pnlPct = t.cost_basis > 0 ? ((t.sell_price - t.cost_basis) / t.cost_basis) * 100 : null;
+      return `
+        <div class="trade-row">
+          <div>
+            <div class="tr-ticker">${t.ticker}</div>
+            <div class="tr-sub">${t.sell_date} · ${t.quantity} sh · ${fmt(t.cost_basis)} → ${fmt(t.sell_price)}${t.note ? ` · ${t.note}` : ""}</div>
+          </div>
+          <div>
+            <div class="tr-pnl ${toneClass(t.realized_pnl)}">${fmtSigned(t.realized_pnl)}</div>
+            ${pnlPct !== null ? `<div class="tr-pnl-pct ${toneClass(pnlPct)}">${fmtPct(pnlPct)}</div>` : ""}
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+}
+</script>
+</body>
+</html>
