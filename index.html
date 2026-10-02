@@ -471,13 +471,32 @@ client.auth.getSession().then(({ data }) => {
   if (data.session) unlock();
 });
 
+// PostgREST caps a single response at 1000 rows, which silently truncated the
+// oldest snapshots (and skewed the portfolio chart), so page through the table.
+async function fetchAllRows(table, orderCol) {
+  const pageSize = 1000;
+  const rows = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await client
+      .from(table)
+      .select("*")
+      .order(orderCol, { ascending: false })
+      .order("ticker")
+      .range(from, from + pageSize - 1);
+    if (error || !data) return { data: rows.length ? rows : null };
+    rows.push(...data);
+    if (data.length < pageSize) break;
+  }
+  return { data: rows };
+}
+
 async function loadDashboard() {
 
   const [{ data: holdings }, { data: watchlist }, { data: snapshots }, { data: intraday }, { data: analysis }, { data: portfolioSummaries }, { data: trades }] =
     await Promise.all([
       client.from("holdings").select("*").order("ticker"),
       client.from("watchlist").select("*").order("ticker"),
-      client.from("daily_snapshots").select("*").order("date", { ascending: false }),
+      fetchAllRows("daily_snapshots", "date"),
       client.from("intraday_snapshots").select("*").order("ts", { ascending: false }).limit(2000),
       client.from("daily_analysis").select("*").order("date", { ascending: false }),
       client.from("portfolio_analysis").select("*").order("date", { ascending: false }).limit(30),
@@ -565,7 +584,8 @@ function portfolioValueAt(qtyByTicker, prices) {
       coveredTickers += 1;
     }
   }
-  return { value, coverage: coveredTickers / Object.keys(qtyByTicker).length };
+  const total = Object.keys(qtyByTicker).length;
+  return { value, coverage: total ? coveredTickers / total : 0 };
 }
 
 function renderPortfolioChart(holdings, snapshots, intraday) {
@@ -577,6 +597,15 @@ function renderPortfolioChart(holdings, snapshots, intraday) {
 
   const qtyByTicker = {};
   for (const h of holdings) qtyByTicker[h.ticker] = h.quantity;
+  // a holding only counts from its first buy date onward, so a recent purchase
+  // doesn't inflate the value of days before it was owned
+  const qtyOn = (date) => {
+    const q = {};
+    for (const h of holdings) {
+      if (!h.first_buy_date || h.first_buy_date <= date) q[h.ticker] = h.quantity;
+    }
+    return q;
+  };
 
   const byDate = {};
   for (const s of snapshots) {
@@ -584,13 +613,19 @@ function renderPortfolioChart(holdings, snapshots, intraday) {
     (byDate[s.date] ??= {})[s.ticker] = s.price;
   }
 
+  // Carry each ticker's last known price forward so a day with a missing
+  // snapshot doesn't drop that holding to $0, and only plot points where every
+  // holding has a price -- otherwise early partial-coverage days understate the
+  // total and inflate the overall return.
+  const lastPrice = {};
   const dailyPoints = Object.keys(byDate)
     .sort()
     .map((date) => {
-      const { value, coverage } = portfolioValueAt(qtyByTicker, byDate[date]);
+      Object.assign(lastPrice, byDate[date]);
+      const { value, coverage } = portfolioValueAt(qtyOn(date), lastPrice);
       return { x: date, label: date, value, coverage };
     })
-    .filter((p) => p.coverage > 0);
+    .filter((p) => p.coverage === 1);
 
   // intraday rows for the most recent trading day give finer-grained points
   // than the one-per-day daily_snapshots history, so swap that last day out
@@ -604,14 +639,16 @@ function renderPortfolioChart(holdings, snapshots, intraday) {
       if (!r.ts.startsWith(latestDate)) continue;
       (byTs[r.ts] ??= {})[r.ticker] = r.price;
     }
+    const carry = { ...lastPrice };
     intradayPoints = Object.keys(byTs)
       .sort()
       .map((ts) => {
-        const { value, coverage } = portfolioValueAt(qtyByTicker, byTs[ts]);
+        Object.assign(carry, byTs[ts]);
+        const { value, coverage } = portfolioValueAt(qtyOn(latestDate), carry);
         const time = new Date(ts).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
         return { x: ts, label: `${latestDate} ${time}`, value, coverage, date: latestDate };
       })
-      .filter((p) => p.coverage > 0);
+      .filter((p) => p.coverage === 1);
   }
 
   const points = [
@@ -682,7 +719,7 @@ function renderPortfolioChart(holdings, snapshots, intraday) {
           .map((c, i) => (i === 0 || i === coords.length - 1 ? `<circle cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="3" fill="${color}" />` : ""))
           .join("")}
       </svg>
-      <div class="chart-note">Retroactively calculated from historical prices using current holding quantities (daily data, plus 10-minute intervals for today; doesn't account for changes before each position's start date).</div>
+      <div class="chart-note">Retroactively calculated from historical prices using current holding quantities (daily data, plus 10-minute intervals for today; holdings count from their first buy date; quantity changes after that aren't reflected).</div>
     </div>
   `;
 }
